@@ -2805,9 +2805,25 @@ status_t Camera3Device::configureStreamsLocked(int operatingMode,
     // is not enabled but the HAL supports session specific hal buffer manager).
 
     int64_t logId = mCameraServiceProxyWrapper->getCurrentLogIdForCamera(mId);
-    const camera_metadata_t *sessionBuffer = sessionParams.getAndLock();
+    CameraMetadata modifiedSessionParams = sessionParams;
+    std::string pkgName = CameraService::getCurrPackageName();
+    if (!pkgName.empty()) {
+        uint32_t clientNameHexId = 0x81420000;
+        modifiedSessionParams.update(clientNameHexId,
+                                     String8(pkgName.c_str()));
+
+        // OnePlus / OPlus vendor tags for package and activity name
+        uint32_t oplusPkgTag = 0x80ec0000;
+        uint32_t oplusActTag = 0x80ec0001;
+        modifiedSessionParams.update(oplusPkgTag,
+                                     String8(pkgName.c_str()));
+        std::string actName = (pkgName == "com.oplus.camera") ? "com.oplus.camera.Camera" : pkgName;
+        modifiedSessionParams.update(oplusActTag,
+                                     String8(actName.c_str()));
+    }
+    const camera_metadata_t *sessionBuffer = modifiedSessionParams.getAndLock();
     res = mInterface->configureStreams(sessionBuffer, &config, bufferSizes, logId);
-    sessionParams.unlock(sessionBuffer);
+    modifiedSessionParams.unlock(sessionBuffer);
 
     if (res == BAD_VALUE) {
         // HAL rejected this set of streams as unsupported, clean up config
