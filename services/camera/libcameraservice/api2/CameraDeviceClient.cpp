@@ -894,6 +894,18 @@ binder::Status CameraDeviceClient::endConfigureLocked(int operatingMode,
         return res;
     }
 
+    if (mStreamMap.isEmpty() && !mInputStream.configured) {
+        char skipUnconfigVal[PROPERTY_VALUE_MAX];
+        property_get("vendor.camera.skip_unconfigure.packagelist", skipUnconfigVal, "");
+        std::vector<std::string> skipUnconfigList = android::base::Split(skipUnconfigVal, ",");
+        if ((std::find(skipUnconfigList.begin(), skipUnconfigList.end(), getPackageName()) != skipUnconfigList.end()) ||
+            (getPackageName() == "com.oplus.camera")) {
+            ALOGI("%s: Camera %s: Skipping unconfigure for package %s",
+                    __FUNCTION__, mCameraIdStr.c_str(), getPackageName().c_str());
+            return res;
+        }
+    }
+
     status_t err = mDevice->configureStreams(sessionParams, operatingMode);
     if (err == BAD_VALUE) {
         std::string msg = fmt::sprintf("Camera %s: Unsupported set of inputs/outputs provided",
